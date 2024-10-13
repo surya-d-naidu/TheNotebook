@@ -1,41 +1,20 @@
-// server.js
 const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
 const fs = require('fs-extra');
-const crypto = require('crypto');
-const path = require('path');
 
 const app = express();
 app.use(cors());
 app.use(bodyParser.json());
 
-const ENCRYPTION_KEY = '12345678901234567890123456789012'; // Use a secure key
-
-// Function to encrypt and decrypt files
-const encrypt = (text, password) => {
-    const iv = crypto.randomBytes(16);
-    const cipher = crypto.createCipheriv('aes-256-ctr', Buffer.from(ENCRYPTION_KEY), iv);
-    const encrypted = Buffer.concat([cipher.update(text, 'utf8'), cipher.final()]);
-    return iv.toString('hex') + ':' + encrypted.toString('hex');
-};
-
-const decrypt = (hash, password) => {
-    const [iv, encryptedText] = hash.split(':');
-    const decipher = crypto.createDecipheriv('aes-256-ctr', Buffer.from(ENCRYPTION_KEY), Buffer.from(iv, 'hex'));
-    const decrypted = Buffer.concat([decipher.update(Buffer.from(encryptedText, 'hex')), decipher.final()]);
-    return decrypted.toString();
-};
-
-app.get('/', (req, res) => {
-    res.send('Welcome to the Notebook API!');
-});
+// Ensure the notebooks directory exists
+fs.ensureDirSync('./notebooks');
 
 // Create a new notebook
 app.post('/api/notebooks', async (req, res) => {
-    const { name, password } = req.body;
+    const { name } = req.body;
     const filePath = `./notebooks/${name}.intb`;
-    const initialData = JSON.stringify({ layers: [], password: password ? encrypt('', password) : null });
+    const initialData = JSON.stringify({ elements: [] });
 
     try {
         await fs.outputFile(filePath, initialData);
@@ -58,8 +37,17 @@ app.get('/api/notebooks/:name', async (req, res) => {
     }
 });
 
-app.listen(5000, () => {
-    console.log('Server is running on http://localhost:5000');
+// Save notebook data
+app.post('/api/notebooks/:name', async (req, res) => {
+    const filePath = `./notebooks/${req.params.name}.intb`;
+    const notebookData = JSON.stringify(req.body);
+
+    try {
+        await fs.writeFile(filePath, notebookData);
+        res.json({ message: 'Notebook saved successfully' });
+    } catch (error) {
+        res.status(500).json({ error: 'Error saving notebook' });
+    }
 });
 
 // Get a list of existing notebooks
@@ -68,21 +56,25 @@ app.get('/api/notebooks', async (req, res) => {
         const files = await fs.readdir('./notebooks');
         const notebooks = files
             .filter(file => file.endsWith('.intb'))
-            .map(file => file.replace('.intb', '')); // Remove the extension
+            .map(file => file.replace('.intb', ''));
         res.json(notebooks);
     } catch (error) {
         res.status(500).json({ error: 'Error reading notebooks' });
     }
 });
 
-app.get('/api/notebooks/:name', async (req, res) => {
-    const { name } = req.params;
-    const filePath = path.join(__dirname, 'notebooks', `${name}.intb`);
+app.listen(5000, () => {
+    console.log('Server is running on http://localhost:5000');
+});
+
+// Delete a notebook
+app.delete('/api/notebooks/:name', async (req, res) => {
+    const filePath = `./notebooks/${req.params.name}.intb`;
 
     try {
-        const data = await fs.readFile(filePath, 'utf8');
-        res.json(JSON.parse(data)); // Assuming the data is stored in JSON format
+        await fs.remove(filePath); // Remove the file
+        res.json({ message: 'Notebook deleted successfully' });
     } catch (error) {
-        res.status(500).json({ error: 'Error reading notebook' });
+        res.status(500).json({ error: 'Error deleting notebook' });
     }
 });

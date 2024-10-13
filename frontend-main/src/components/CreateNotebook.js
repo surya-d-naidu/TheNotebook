@@ -1,16 +1,17 @@
 // src/components/CreateNotebook.js
 import React, { useState } from 'react';
 import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
 
 const CreateNotebook = () => {
     const [name, setName] = useState('');
-    const [password, setPassword] = useState('');
+    const navigate = useNavigate();
 
     const handleCreate = async () => {
-        await axios.post('http://localhost:5000/api/notebooks', { name, password });
+        await axios.post('http://localhost:5000/api/notebooks', { name });
         alert('Notebook created successfully!');
         setName('');
-        setPassword('');
+        navigate('/');
     };
 
     return (
@@ -22,16 +23,9 @@ const CreateNotebook = () => {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
             />
-            <input
-                type="password"
-                placeholder="Password (optional)"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-            />
             <button onClick={handleCreate}>Create Notebook</button>
         </div>
     );
 };
 
 export default CreateNotebook;
-
