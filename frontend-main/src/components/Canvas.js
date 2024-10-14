@@ -6,6 +6,7 @@ import './Canvas.css';
 const API_BASE_URL = 'http://localhost:5000/api';
 
 const Canvas = ({ notebookName, initialElements = [] }) => {
+    const [previewImage, setPreviewImage] = useState(null);
     const [elements, setElements] = useState(initialElements);
     const [isDrawing, setIsDrawing] = useState(false);
     const [currentLine, setCurrentLine] = useState([]);
@@ -24,6 +25,7 @@ const Canvas = ({ notebookName, initialElements = [] }) => {
     const [showStrokeWidthPopover, setShowStrokeWidthPopover] = useState(false);
     const stageRef = useRef(null);
     const transformerRef = useRef(null);
+    const [geminiResponse, setGeminiResponse] = useState('');
 
     useEffect(() => {
         setElements(initialElements);
@@ -42,25 +44,72 @@ const Canvas = ({ notebookName, initialElements = [] }) => {
         }
     }, [selectedId]);
 
+    const sendImageToGemini = async () => {
+        const stage = stageRef.current;
+        
+        try {
+            setIsLoading(true);
+            setError(null);
+
+            // Get the data URL of the stage
+            const dataURL = stage.toDataURL();
+            
+            const response = await axios.post(`${API_BASE_URL}/analyze-image`, {
+                image: dataURL
+            });
+            
+            const result = response.data.result;
+            setGeminiResponse(result);
+            
+            // Add the Gemini response as a new text element to the canvas
+            const newText = {
+                text: result,
+                x: 50,
+                y: 50,
+                id: `gemini-response-${Date.now()}`,
+                isText: true
+            };
+            setElements(prev => [...prev, newText]);
+        } catch (error) {
+            console.error('Error analyzing image:', error);
+            if (error.response) {
+                // The request was made and the server responded with a status code
+                // that falls out of the range of 2xx
+                setError(error.response.data.error || 'An error occurred while analyzing the image.');
+            } else if (error.request) {
+                // The request was made but no response was received
+                setError('No response received from server. Please check your network connection.');
+            } else {
+                // Something happened in setting up the request that triggered an Error
+                setError(`Error: ${error.message}`);
+            }
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     const handleMouseDown = (e) => {
         const clickedOnEmpty = e.target === e.target.getStage();
         if (clickedOnEmpty) {
             selectShape(null);
         }
-
+    
+        const pos = e.target.getStage().getPointerPosition();
+        const scaledPos = {
+            x: (pos.x - position.x) / scale,
+            y: (pos.y - position.y) / scale
+        };
+    
         if (tool === 'pencil') {
             setIsDrawing(true);
-            const pos = e.target.getStage().getPointerPosition();
-            setCurrentLine([pos.x, pos.y]);
+            setCurrentLine([scaledPos.x, scaledPos.y]);
         } else if (tool === 'eraser') {
-            const pos = e.target.getStage().getPointerPosition();
-            eraseLines(pos);
+            eraseLines(scaledPos);
         } else if (tool === 'text') {
-            const pos = e.target.getStage().getPointerPosition();
-            handleAddText(pos);
+            handleAddText(scaledPos);
         } else if (tool === 'pan') {
             setIsDragging(true);
-            setStartPosition(e.target.getStage().getPointerPosition());
+            setStartPosition(pos);
         }
     };
 
@@ -78,10 +127,15 @@ const Canvas = ({ notebookName, initialElements = [] }) => {
     const handleMouseMove = (e) => {
         if (!isDrawing && !isDragging) return;
         const pos = e.target.getStage().getPointerPosition();
+        const scaledPos = {
+            x: (pos.x - position.x) / scale,
+            y: (pos.y - position.y) / scale
+        };
+    
         if (tool === 'pencil' && isDrawing) {
-            setCurrentLine(prev => [...prev, pos.x, pos.y]);
+            setCurrentLine(prev => [...prev, scaledPos.x, scaledPos.y]);
         } else if (tool === 'eraser') {
-            eraseLines(pos);
+            eraseLines(scaledPos);
         } else if (tool === 'pan' && isDragging) {
             const newPosition = {
                 x: position.x + (pos.x - startPosition.x),
@@ -189,18 +243,18 @@ const Canvas = ({ notebookName, initialElements = [] }) => {
         const stage = e.target.getStage();
         const oldScale = stage.scaleX();
         const mousePointTo = {
-            x: stage.getPointerPosition().x / oldScale - stage.x() / oldScale,
-            y: stage.getPointerPosition().y / oldScale - stage.y() / oldScale
+            x: (stage.getPointerPosition().x - position.x) / oldScale,
+            y: (stage.getPointerPosition().y - position.y) / oldScale
         };
-
+    
         const newScale = e.evt.deltaY > 0 ? oldScale / scaleBy : oldScale * scaleBy;
-
+    
         setScale(newScale);
         setPosition({
-            x: -(mousePointTo.x - stage.getPointerPosition().x / newScale) * newScale,
-            y: -(mousePointTo.y - stage.getPointerPosition().y / newScale) * newScale
+            x: stage.getPointerPosition().x - mousePointTo.x * newScale,
+            y: stage.getPointerPosition().y - mousePointTo.y * newScale
         });
-    };
+    };    
 
     return (
         <div className="canvas-container">
@@ -241,9 +295,16 @@ const Canvas = ({ notebookName, initialElements = [] }) => {
                         placeholder="Enter text"
                     />
                 )}
+                <button onClick={sendImageToGemini}>🖼️ Analyze with AI</button>
             </div>
             {isLoading && <div className="loading">Saving...</div>}
             {error && <div className="error">Error: {error}</div>}
+            {previewImage && (
+                <div className="image-preview">
+                    <h3>Image being sent:</h3>
+                    <img src={previewImage} alt="Canvas preview" style={{ maxWidth: '300px' }} />
+                </div>
+            )}
             <Stage
                 width={window.innerWidth}
                 height={window.innerHeight - 50} // Adjust for toolbar height

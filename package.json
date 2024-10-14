@@ -14,6 +14,7 @@
   "author": "surya-d-naidu",
   "license": "ISC",
   "dependencies": {
+    "@google/generative-ai": "^0.21.0",
     "body-parser": "^1.20.3",
     "cors": "^2.8.5",
     "crypto": "^1.0.1",
