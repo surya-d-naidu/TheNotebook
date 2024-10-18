@@ -1,292 +1,167 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Stage, Layer, Line, Text, Transformer, Circle } from 'react-konva';
+import React, { useState, useRef, useEffect } from 'react';
+import { Stage, Layer, Line, Text, Rect } from 'react-konva';
 import axios from 'axios';
-import './Canvas.css';
+import { useNavigate } from 'react-router-dom';
 
 const API_BASE_URL = 'http://localhost:5000/api';
 
-const Canvas = ({ notebookName, initialElements = [] }) => {
-    const [previewImage, setPreviewImage] = useState(null);
-    const [elements, setElements] = useState(initialElements);
+const Canvas = ({ notebookName }) => {
+    const [pages, setPages] = useState([[]]);
+    const [currentPage, setCurrentPage] = useState(0);
     const [isDrawing, setIsDrawing] = useState(false);
-    const [currentLine, setCurrentLine] = useState([]);
-    const [color, setColor] = useState('black');
-    const [strokeWidth, setStrokeWidth] = useState(2);
     const [tool, setTool] = useState('pencil');
+    const [color, setColor] = useState('#000000');
+    const [strokeWidth, setStrokeWidth] = useState(2);
     const [textInput, setTextInput] = useState('');
-    const [isLoading, setIsLoading] = useState(false);
-    const [error, setError] = useState(null);
-    const [eraserRadius] = useState(10);
-    const [selectedId, selectShape] = useState(null);
-    const [scale, setScale] = useState(1);
-    const [position, setPosition] = useState({ x: 0, y: 0 });
-    const [isDragging, setIsDragging] = useState(false);
-    const [startPosition, setStartPosition] = useState({ x: 0, y: 0 });
-    const [showStrokeWidthPopover, setShowStrokeWidthPopover] = useState(false);
+    const [history, setHistory] = useState([]);
+    const [historyStep, setHistoryStep] = useState(0);
+    const [aiResponse, setAiResponse] = useState('');
     const stageRef = useRef(null);
-    const transformerRef = useRef(null);
-    const [geminiResponse, setGeminiResponse] = useState('');
+    const navigate = useNavigate();
+
+    const pageRatio = 9 / 16;
+    const pageWidth = window.innerWidth * 0.8;
+    const pageHeight = pageWidth * pageRatio;
 
     useEffect(() => {
-        setElements(initialElements);
-    }, [initialElements]);
+        loadNotebook();
+    }, [notebookName]);
 
-    useEffect(() => {
-        if (selectedId) {
-            const selectedNode = stageRef.current.findOne('#' + selectedId);
-            if (selectedNode) {
-                transformerRef.current.nodes([selectedNode]);
-                transformerRef.current.getLayer().batchDraw();
-            }
-        } else {
-            transformerRef.current.nodes([]);
-            transformerRef.current.getLayer().batchDraw();
-        }
-    }, [selectedId]);
-
-    const sendImageToGemini = async () => {
-        const stage = stageRef.current;
-        
+    const loadNotebook = async () => {
         try {
-            setIsLoading(true);
-            setError(null);
-
-            // Get the data URL of the stage
-            const dataURL = stage.toDataURL();
-            
-            const response = await axios.post(`${API_BASE_URL}/analyze-image`, {
-                image: dataURL
-            });
-            
-            const result = response.data.result;
-            setGeminiResponse(result);
-            
-            // Add the Gemini response as a new text element to the canvas
-            const newText = {
-                text: result,
-                x: 50,
-                y: 50,
-                id: `gemini-response-${Date.now()}`,
-                isText: true
-            };
-            setElements(prev => [...prev, newText]);
+            const response = await axios.get(`${API_BASE_URL}/notebooks/${notebookName}`);
+            setPages(response.data.pages || [[]]);
+            setHistory([response.data.pages || [[]]]);
+            setHistoryStep(0);
         } catch (error) {
-            console.error('Error analyzing image:', error);
-            if (error.response) {
-                // The request was made and the server responded with a status code
-                // that falls out of the range of 2xx
-                setError(error.response.data.error || 'An error occurred while analyzing the image.');
-            } else if (error.request) {
-                // The request was made but no response was received
-                setError('No response received from server. Please check your network connection.');
-            } else {
-                // Something happened in setting up the request that triggered an Error
-                setError(`Error: ${error.message}`);
-            }
-        } finally {
-            setIsLoading(false);
+            console.error('Error loading notebook:', error);
+            alert('Failed to load notebook. Please try again.');
         }
     };
 
     const handleMouseDown = (e) => {
-        const clickedOnEmpty = e.target === e.target.getStage();
-        if (clickedOnEmpty) {
-            selectShape(null);
-        }
-    
-        const pos = e.target.getStage().getPointerPosition();
-        const scaledPos = {
-            x: (pos.x - position.x) / scale,
-            y: (pos.y - position.y) / scale
-        };
-    
-        if (tool === 'pencil') {
+        if (tool === 'pencil' || tool === 'eraser') {
             setIsDrawing(true);
-            setCurrentLine([scaledPos.x, scaledPos.y]);
-        } else if (tool === 'eraser') {
-            eraseLines(scaledPos);
+            const pos = e.target.getStage().getPointerPosition();
+            const newPages = [...pages];
+            newPages[currentPage] = [...newPages[currentPage], { tool, points: [pos.x, pos.y], color, strokeWidth }];
+            setPages(newPages);
         } else if (tool === 'text') {
-            handleAddText(scaledPos);
-        } else if (tool === 'pan') {
-            setIsDragging(true);
-            setStartPosition(pos);
-        }
-    };
-
-    const handleMouseUp = () => {
-        if (tool === 'pencil' && isDrawing) {
-            setIsDrawing(false);
-            const newLine = { points: currentLine, color, strokeWidth, id: `line${Date.now()}` };
-            setElements(prev => [...prev, newLine]);
-            setCurrentLine([]);
-        } else if (tool === 'pan') {
-            setIsDragging(false);
+            const pos = e.target.getStage().getPointerPosition();
+            if (textInput) {
+                const newPages = [...pages];
+                newPages[currentPage] = [...newPages[currentPage], { tool, x: pos.x, y: pos.y, text: textInput, color }];
+                setPages(newPages);
+                setTextInput('');
+            }
         }
     };
 
     const handleMouseMove = (e) => {
-        if (!isDrawing && !isDragging) return;
-        const pos = e.target.getStage().getPointerPosition();
-        const scaledPos = {
-            x: (pos.x - position.x) / scale,
-            y: (pos.y - position.y) / scale
-        };
-    
-        if (tool === 'pencil' && isDrawing) {
-            setCurrentLine(prev => [...prev, scaledPos.x, scaledPos.y]);
-        } else if (tool === 'eraser') {
-            eraseLines(scaledPos);
-        } else if (tool === 'pan' && isDragging) {
-            const newPosition = {
-                x: position.x + (pos.x - startPosition.x),
-                y: position.y + (pos.y - startPosition.y)
-            };
-            setPosition(newPosition);
-            setStartPosition(pos);
+        if (!isDrawing) return;
+        const stage = e.target.getStage();
+        const point = stage.getPointerPosition();
+        const newPages = [...pages];
+        let lastLine = newPages[currentPage][newPages[currentPage].length - 1];
+        lastLine.points = lastLine.points.concat([point.x, point.y]);
+        setPages(newPages);
+    };
+
+    const handleMouseUp = () => {
+        setIsDrawing(false);
+        addToHistory();
+    };
+
+    const addToHistory = () => {
+        const newHistory = history.slice(0, historyStep + 1);
+        newHistory.push(pages);
+        setHistory(newHistory);
+        setHistoryStep(newHistory.length - 1);
+    };
+
+    const undo = () => {
+        if (historyStep > 0) {
+            setHistoryStep(historyStep - 1);
+            setPages(history[historyStep - 1]);
         }
     };
 
-    const handleAddText = (position) => {
-        if (textInput) {
-            const newText = { 
-                text: textInput, 
-                x: position.x, 
-                y: position.y, 
-                id: `text${Date.now()}`, 
-                isText: true 
-            };
-            setElements(prev => [...prev, newText]);
-            setTextInput('');
-            setTool('pencil');
+    const redo = () => {
+        if (historyStep < history.length - 1) {
+            setHistoryStep(historyStep + 1);
+            setPages(history[historyStep + 1]);
         }
-    };
-
-    const handleTextEdit = (id, newText) => {
-        setElements(prev => prev.map(el => 
-            el.id === id ? { ...el, text: newText } : el
-        ));
-    };
-
-    const eraseLines = (position) => {
-        setElements(prev => prev.filter(element => {
-            if (element.points) {
-                return !isLineNear(element.points, position);
-            }
-            return true;
-        }));
-    };
-
-    const isLineNear = (points, position) => {
-        for (let i = 0; i < points.length - 2; i += 2) {
-            const x1 = points[i];
-            const y1 = points[i + 1];
-            const x2 = points[i + 2];
-            const y2 = points[i + 3];
-
-            if (isPointNearLineSegment(position, { x1, y1, x2, y2 })) {
-                return true;
-            }
-        }
-        return false;
-    };
-
-    const isPointNearLineSegment = (point, line) => {
-        const { x1, y1, x2, y2 } = line;
-        const A = point.x - x1;
-        const B = point.y - y1;
-        const C = x2 - x1;
-        const D = y2 - y1;
-
-        const dot = A * C + B * D;
-        const len_sq = C * C + D * D;
-        const param = len_sq ? dot / len_sq : -1;
-
-        let xx, yy;
-
-        if (param < 0) {
-            xx = x1;
-            yy = y1;
-        } else if (param > 1) {
-            xx = x2;
-            yy = y2;
-        } else {
-            xx = x1 + param * C;
-            yy = y1 + param * D;
-        }
-
-        const dx = point.x - xx;
-        const dy = point.y - yy;
-        return (dx * dx + dy * dy) <= (eraserRadius * eraserRadius);
     };
 
     const saveCanvas = async () => {
         if (!notebookName) {
-            setError('Notebook name is required.');
+            alert('Notebook name is required.');
             return;
         }
-        const notebookData = { elements };
         try {
-            setIsLoading(true);
-            await axios.post(`${API_BASE_URL}/notebooks/${notebookName}`, notebookData);
+            const stage = stageRef.current;
+            const dataURL = stage.toDataURL({ pixelRatio: 2 });
+            await axios.post(`${API_BASE_URL}/notebooks/${notebookName}`, { 
+                pages,
+                imageData: dataURL
+            });
             alert("Notebook saved successfully!");
         } catch (error) {
             console.error('Error saving notebook:', error);
-            setError('Failed to save notebook. Please try again.');
-        } finally {
-            setIsLoading(false);
+            alert('Failed to save notebook. Please try again.');
         }
     };
 
-    const handleWheel = (e) => {
-        e.evt.preventDefault();
-        const scaleBy = 1.1;
-        const stage = e.target.getStage();
-        const oldScale = stage.scaleX();
-        const mousePointTo = {
-            x: (stage.getPointerPosition().x - position.x) / oldScale,
-            y: (stage.getPointerPosition().y - position.y) / oldScale
-        };
-    
-        const newScale = e.evt.deltaY > 0 ? oldScale / scaleBy : oldScale * scaleBy;
-    
-        setScale(newScale);
-        setPosition({
-            x: stage.getPointerPosition().x - mousePointTo.x * newScale,
-            y: stage.getPointerPosition().y - mousePointTo.y * newScale
-        });
-    };    
+    const analyzeWithAI = async () => {
+        try {
+            const stage = stageRef.current;
+            const dataURL = stage.toDataURL({ pixelRatio: 2 });
+            const response = await axios.post(`${API_BASE_URL}/analyze-image`, { image: dataURL });
+            setAiResponse(response.data.result);
+        } catch (error) {
+            console.error('Error analyzing image:', error);
+            alert('Failed to analyze image. Please try again.');
+        }
+    };
+
+    const handleBack = () => {
+        navigate('/');
+    };
+
+    const addPage = () => {
+        setPages([...pages, []]);
+        setCurrentPage(pages.length);
+    };
+
+    const changePage = (pageIndex) => {
+        setCurrentPage(pageIndex);
+    };
 
     return (
         <div className="canvas-container">
             <div className="toolbar">
-                <button className="back-button" onClick={() => console.log('Back button clicked')}>
-                    ← Back
-                </button>
-                <button onClick={() => setTool('pencil')}>✏️</button>
-                <button onClick={() => setTool('eraser')}>🗑️</button>
-                <button onClick={() => setTool('text')}>📝</button>
-                <button onClick={() => setTool('pan')}>🖐️</button>
+                <button onClick={handleBack}>Back</button>
+                <button onClick={() => setTool('pencil')}>Pencil</button>
+                <button onClick={() => setTool('eraser')}>Eraser</button>
+                <button onClick={() => setTool('text')}>Text</button>
                 <div className="color-picker">
-                    <Circle radius={10} fill={color} stroke="black" strokeWidth={1} />
-                    <input type="color" onChange={(e) => setColor(e.target.value)} />
+                    <label>Color:</label>
+                    <input
+                        type="color"
+                        value={color}
+                        onChange={(e) => setColor(e.target.value)}
+                    />
                 </div>
                 <div className="stroke-width-picker">
-                    <button onClick={() => setShowStrokeWidthPopover(!showStrokeWidthPopover)}>
-                        Stroke Width
-                    </button>
-                    {showStrokeWidthPopover && (
-                        <div className="stroke-width-popover">
-                            <input
-                                type="range"
-                                min="1"
-                                max="20"
-                                value={strokeWidth}
-                                onChange={(e) => setStrokeWidth(parseInt(e.target.value, 10))}
-                            />
-                        </div>
-                    )}
+                    <label>Width:</label>
+                    <input
+                        type="range"
+                        min="1"
+                        max="20"
+                        value={strokeWidth}
+                        onChange={(e) => setStrokeWidth(parseInt(e.target.value))}
+                    />
                 </div>
-                <button onClick={saveCanvas}>💾 Save</button>
                 {tool === 'text' && (
                     <input
                         type="text"
@@ -295,85 +170,72 @@ const Canvas = ({ notebookName, initialElements = [] }) => {
                         placeholder="Enter text"
                     />
                 )}
-                <button onClick={sendImageToGemini}>🖼️ Analyze with AI</button>
+                <button onClick={saveCanvas}>Save</button>
+                <button onClick={analyzeWithAI}>AI</button>
+                <button onClick={undo}>Undo</button>
+                <button onClick={redo}>Redo</button>
+                <button onClick={addPage}>Add Page</button>
             </div>
-            {isLoading && <div className="loading">Saving...</div>}
-            {error && <div className="error">Error: {error}</div>}
-            {previewImage && (
-                <div className="image-preview">
-                    <h3>Image being sent:</h3>
-                    <img src={previewImage} alt="Canvas preview" style={{ maxWidth: '300px' }} />
-                </div>
-            )}
+            <div className="page-navigation">
+                {pages.map((_, index) => (
+                    <button key={index} onClick={() => changePage(index)}>
+                        Page {index + 1}
+                    </button>
+                ))}
+            </div>
             <Stage
-                width={window.innerWidth}
-                height={window.innerHeight - 50} // Adjust for toolbar height
+                width={pageWidth}
+                height={pageHeight}
                 onMouseDown={handleMouseDown}
-                onMouseUp={handleMouseUp}
                 onMouseMove={handleMouseMove}
-                onWheel={handleWheel}
-                scaleX={scale}
-                scaleY={scale}
-                x={position.x}
-                y={position.y}
+                onMouseUp={handleMouseUp}
                 ref={stageRef}
             >
                 <Layer>
-                    {elements.map((element) => {
-                        if (element.points) {
+                    <Rect
+                        x={0}
+                        y={0}
+                        width={pageWidth}
+                        height={pageHeight}
+                        fill="white"
+                    />
+                    {pages[currentPage].map((element, i) => {
+                        if (element.tool === 'pencil' || element.tool === 'eraser') {
                             return (
                                 <Line
-                                    key={element.id}
+                                    key={i}
                                     points={element.points}
-                                    stroke={element.color}
+                                    stroke={element.tool === 'eraser' ? 'white' : element.color}
                                     strokeWidth={element.strokeWidth}
+                                    tension={0.5}
                                     lineCap="round"
-                                    lineJoin="round"
-                                    draggable
-                                    onClick={() => selectShape(element.id)}
+                                    globalCompositeOperation={
+                                        element.tool === 'eraser' ? 'destination-out' : 'source-over'
+                                    }
                                 />
                             );
-                        } else if (element.isText) {
+                        } else if (element.tool === 'text') {
                             return (
                                 <Text
-                                    key={element.id}
-                                    id={element.id}
-                                    text={element.text}
+                                    key={i}
                                     x={element.x}
                                     y={element.y}
-                                    draggable
-                                    onClick={() => selectShape(element.id)}
-                                    onDblClick={(e) => {
-                                        const newText = prompt('Edit text:', element.text);
-                                        if (newText !== null) {
-                                            handleTextEdit(element.id, newText);
-                                        }
-                                    }}
+                                    text={element.text}
+                                    fontSize={16}
+                                    fill={element.color}
                                 />
                             );
                         }
                         return null;
                     })}
-                    {isDrawing && tool === 'pencil' && (
-                        <Line
-                            points={currentLine}
-                            stroke={color}
-                            strokeWidth={strokeWidth}
-                            lineCap="round"
-                            lineJoin="round"
-                        />
-                    )}
-                    <Transformer
-                        ref={transformerRef}
-                        boundBoxFunc={(oldBox, newBox) => {
-                            if (newBox.width < 5 || newBox.height < 5) {
-                                return oldBox;
-                            }
-                            return newBox;
-                        }}
-                    />
                 </Layer>
             </Stage>
+            {aiResponse && (
+                <div className="ai-response">
+                    <h3>AI Analysis:</h3>
+                    <p>{aiResponse}</p>
+                </div>
+            )}
         </div>
     );
 };

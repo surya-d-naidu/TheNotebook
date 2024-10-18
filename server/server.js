@@ -3,18 +3,18 @@ const bodyParser = require('body-parser');
 const cors = require('cors');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const fs = require('fs-extra');
-//const path = require('path');
+const path = require('path');
 
 const app = express();
 app.use(cors());
 app.use(bodyParser.json({ limit: '50mb' }));
 
-const genAI = new GoogleGenerativeAI('--Gemini AI API Key--');
+const genAI = new GoogleGenerativeAI('--API KEY HERE--');
 
-//const tempDir = path.join(__dirname, 'temp_images');
-//if (!fs.existsSync(tempDir)) {
-//    fs.mkdirSync(tempDir);
-//}
+const tempDir = path.join(__dirname, 'temp_images');
+if (!fs.existsSync(tempDir)) {
+    fs.mkdirSync(tempDir);
+}
 
 // Ensure the notebooks directory exists
 fs.ensureDirSync('./notebooks');
@@ -33,8 +33,8 @@ app.post('/api/analyze-image', async (req, res) => {
         const imageBuffer = Buffer.from(base64Image, 'base64');
 
         // Save the image temporarily
-        //const tempFilePath = path.join(tempDir, `temp_image_${Date.now()}.png`);
-        //fs.writeFileSync(tempFilePath, imageBuffer);
+        const tempFilePath = path.join(tempDir, `temp_image_${Date.now()}.png`);
+        fs.writeFileSync(tempFilePath, imageBuffer);
 
         console.log('Temporary image saved at:', tempFilePath);
 
