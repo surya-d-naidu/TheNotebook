@@ -9,7 +9,7 @@ const app = express();
 app.use(cors());
 app.use(bodyParser.json({ limit: '50mb' }));
 
-const genAI = new GoogleGenerativeAI('--API KEY HERE--');
+const genAI = new GoogleGenerativeAI('AIzaSyChOyO2xOTXgGEZdLKH6DHpW136tLUxvMQ');
 
 const tempDir = path.join(__dirname, 'temp_images');
 if (!fs.existsSync(tempDir)) {
