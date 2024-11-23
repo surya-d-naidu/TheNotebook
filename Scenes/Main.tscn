@@ -1,0 +1,35 @@
+[gd_scene format=3 uid="uid://b31x188cgqt71"]
+
+[node name="Main" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_right = 1.0
+offset_bottom = -5.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="MainPanel" type="Panel" parent="."]
+layout_mode = 0
+offset_right = 766.0
+offset_bottom = 1020.0
+
+[node name="NotebooksDisplay" type="Panel" parent="MainPanel"]
+layout_mode = 0
+offset_top = 98.0
+offset_right = 768.0
+offset_bottom = 1022.0
+
+[node name="ScrollContainer" type="ScrollContainer" parent="MainPanel/NotebooksDisplay"]
+layout_mode = 0
+offset_right = 767.0
+offset_bottom = 925.0
+
+[node name="Button" type="Button" parent="MainPanel"]
+layout_mode = 0
+offset_left = 551.0
+offset_top = 943.0
+offset_right = 740.0
+offset_bottom = 996.0
+text = "New Notebook"

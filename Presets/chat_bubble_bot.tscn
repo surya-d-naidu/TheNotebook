@@ -1,0 +1,7 @@
+[gd_scene format=3 uid="uid://bewbn5nfi0k0h"]
+
+[node name="ChatBubble" type="RichTextLabel"]
+offset_right = 442.0
+offset_bottom = 40.0
+fit_content = true
+scroll_following = true

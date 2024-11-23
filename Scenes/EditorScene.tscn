@@ -1,0 +1,139 @@
+[gd_scene load_steps=2 format=3 uid="uid://ca8gmjeik60sh"]
+
+[ext_resource type="Script" path="res://Scripts/WhiteboardCanvas.cs" id="1_vkuml"]
+
+[node name="Control" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+metadata/_edit_vertical_guides_ = [26.0, 744.0, 410.0, 376.0]
+metadata/_edit_horizontal_guides_ = [24.0, 95.0, 109.0, 1003.0, 918.0]
+
+[node name="Panel" type="Panel" parent="."]
+layout_mode = 0
+offset_left = 25.0
+offset_top = 26.0
+offset_right = 744.0
+offset_bottom = 94.0
+
+[node name="Back" type="Button" parent="Panel"]
+layout_mode = 0
+offset_left = 22.0
+offset_top = 21.0
+offset_right = 91.0
+offset_bottom = 46.0
+
+[node name="Pencil" type="Button" parent="Panel"]
+layout_mode = 0
+offset_left = 125.0
+offset_top = 21.0
+offset_right = 150.0
+offset_bottom = 46.0
+
+[node name="Eraser" type="Button" parent="Panel"]
+layout_mode = 0
+offset_left = 185.0
+offset_top = 21.0
+offset_right = 210.0
+offset_bottom = 46.0
+
+[node name="ColorPicker" type="Button" parent="Panel"]
+layout_mode = 0
+offset_left = 244.0
+offset_top = 20.0
+offset_right = 269.0
+offset_bottom = 45.0
+
+[node name="AI" type="Button" parent="Panel"]
+layout_mode = 0
+offset_left = 461.0
+offset_top = 21.0
+offset_right = 486.0
+offset_bottom = 46.0
+
+[node name="Undo" type="Button" parent="Panel"]
+layout_mode = 0
+offset_left = 521.0
+offset_top = 21.0
+offset_right = 546.0
+offset_bottom = 46.0
+
+[node name="Redo" type="Button" parent="Panel"]
+layout_mode = 0
+offset_left = 580.0
+offset_top = 20.0
+offset_right = 605.0
+offset_bottom = 45.0
+
+[node name="Save" type="Button" parent="Panel"]
+layout_mode = 0
+offset_left = 637.0
+offset_top = 21.0
+offset_right = 662.0
+offset_bottom = 46.0
+
+[node name="WidthSlider" type="HSlider" parent="Panel"]
+layout_mode = 0
+offset_left = 303.0
+offset_top = 25.0
+offset_right = 423.0
+offset_bottom = 41.0
+
+[node name="ChatPanel" type="Panel" parent="Panel"]
+visible = false
+layout_mode = 0
+offset_top = 77.0
+offset_right = 719.0
+offset_bottom = 409.0
+
+[node name="TextEdit" type="TextEdit" parent="Panel/ChatPanel"]
+layout_mode = 0
+offset_left = 22.0
+offset_top = 278.0
+offset_right = 579.0
+offset_bottom = 316.0
+placeholder_text = "Enter your query......."
+
+[node name="Button" type="Button" parent="Panel/ChatPanel"]
+layout_mode = 0
+offset_left = 588.0
+offset_top = 276.0
+offset_right = 699.0
+offset_bottom = 312.0
+text = "Send"
+
+[node name="ScrollContainer" type="ScrollContainer" parent="Panel/ChatPanel"]
+layout_mode = 0
+offset_left = 19.0
+offset_top = 17.0
+offset_right = 699.0
+offset_bottom = 269.0
+
+[node name="VScrollBar" type="VScrollBar" parent="Panel/ChatPanel/ScrollContainer"]
+layout_mode = 2
+
+[node name="Prev" type="Button" parent="Panel"]
+layout_mode = 0
+offset_top = 891.0
+offset_right = 355.0
+offset_bottom = 976.0
+text = "Prev"
+
+[node name="Next" type="Button" parent="Panel"]
+layout_mode = 0
+offset_left = 387.0
+offset_top = 891.0
+offset_right = 723.0
+offset_bottom = 976.0
+text = "Next"
+
+[node name="Control" type="Control" parent="."]
+anchors_preset = 0
+offset_left = 27.0
+offset_top = 111.0
+offset_right = 744.0
+offset_bottom = 894.0
+script = ExtResource("1_vkuml")
