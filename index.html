@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TheNotebook - Manage Your Notebooks</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+    <!-- Top Bar -->
+    <header class="topbar">
+        <h1>TheNotebook</h1>
+    </header>
+
+    <!-- Notebook Listings -->
+    <main class="notebooks-container">
+        <ul class="notebook-list">
+            <li class="notebook-item">
+                <div class="notebook-info">
+                    <span class="notebook-name">Notebook 1</span>
+                    <button class="action-btn dropdown-btn" onclick="toggleDropdown(event)">⋮</button>
+                </div>
+                <div class="dropdown-options">
+                    <button class="action-btn rename-btn" onclick="renameNotebook(event)">Rename</button>
+                    <button class="action-btn delete-btn" onclick="deleteNotebook(event)">Delete</button>
+                    <button class="action-btn share-btn" onclick="shareNotebook(event)">Share</button>
+                </div>
+            </li>
+            <li class="notebook-item">
+                <div class="notebook-info">
+                    <span class="notebook-name">Notebook 2</span>
+                    <button class="action-btn dropdown-btn" onclick="toggleDropdown(event)">⋮</button>
+                </div>
+                <div class="dropdown-options">
+                    <button class="action-btn rename-btn" onclick="renameNotebook(event)">Rename</button>
+                    <button class="action-btn delete-btn" onclick="deleteNotebook(event)">Delete</button>
+                    <button class="action-btn share-btn" onclick="shareNotebook(event)">Share</button>
+                </div>
+            </li>
+        </ul>
+    </main>
+
+    <!-- Floating Action Button for New Notebook -->
+    <button class="fab" onclick="createNewNotebook()">+</button>
+
+    <script src="script.js"></script>
+</body>
+
+</html>
